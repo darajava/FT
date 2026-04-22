@@ -105,10 +105,7 @@
         transition: background-color 0.3s ease;
       }
 
-      .tab:hover {
-        color: var(--text-main);
-      }
-
+      .tab:hover,
       .tab.active {
         color: var(--text-main);
       }
@@ -125,15 +122,102 @@
         display: block;
       }
 
+      /* Library Layout Wrapper */
+      .library-wrapper {
+        display: flex;
+        align-items: flex-start;
+        position: relative;
+      }
+
+      /* Apple-style Floating Side Nav */
+      #side-nav {
+        position: sticky;
+        top: 2rem;
+        width: 50px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        padding-right: 1.5rem;
+        /* Remove max-height scrolling so it acts like a true fixed nav */
+      }
+
+      .nav-year-group {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        width: 100%;
+        margin-bottom: 0.5rem;
+      }
+
+      .side-year {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition:
+          color 0.3s,
+          transform 0.3s;
+        transform-origin: right center;
+      }
+
+      .nav-year-group.active .side-year,
+      .side-year:hover {
+        color: var(--text-main);
+        transform: scale(1.1);
+      }
+
+      /* Accordion effect for months */
+      .side-months {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition:
+          max-height 0.4s ease,
+          opacity 0.4s ease;
+      }
+
+      .nav-year-group.active .side-months {
+        max-height: 300px; /* Tall enough to fit 12 months */
+        opacity: 1;
+        margin-top: 0.25rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .side-month {
+        font-size: 0.7rem;
+        font-weight: 500;
+        color: var(--text-muted);
+        margin-bottom: 0.25rem;
+        cursor: pointer;
+        transition:
+          color 0.3s,
+          opacity 0.3s;
+        opacity: 0.6;
+      }
+
+      .side-month:hover,
+      .side-month.active {
+        color: var(--text-main);
+        opacity: 1;
+        font-weight: 600;
+      }
+
       /* Timeline Layout */
       .timeline {
         border-left: 1px solid var(--border);
         padding-left: 2rem;
-        margin-left: 1rem;
+        margin-left: 0.5rem;
+        flex-grow: 1;
+        min-width: 0;
       }
 
       .week-group {
         margin-bottom: 3.5rem;
+        scroll-margin-top: 4rem;
       }
 
       .week-header {
@@ -146,11 +230,10 @@
         margin-bottom: 1.5rem;
       }
 
-      /* The dot on the timeline */
       .week-header::before {
         content: "";
         position: absolute;
-        left: -2.35rem; /* Centers perfectly on the 1px line */
+        left: -2.35rem;
         top: 50%;
         transform: translateY(-50%);
         width: 8px;
@@ -160,9 +243,19 @@
         border-radius: 50%;
       }
 
+      .week-theme {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: normal;
+        color: var(--text-main);
+        margin-top: 0.25rem;
+      }
+
       .songs-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
         gap: 1.5rem;
       }
 
@@ -272,10 +365,6 @@
         margin-bottom: 1rem;
       }
 
-      .stat-list li:last-child {
-        margin-bottom: 0;
-      }
-
       .stat-row {
         display: flex;
         justify-content: space-between;
@@ -318,32 +407,28 @@
         transform: translateY(0);
       }
 
-      @media screen and (max-width: 600px) {
+      /* Responsive adjustments */
+      @media screen and (max-width: 768px) {
+        #side-nav {
+          width: 35px; /* Slimmer on mobile */
+          padding-right: 0.75rem;
+        }
+        .side-year {
+          font-size: 0.75rem;
+        }
+        .side-month {
+          font-size: 0.6rem;
+        }
         .timeline {
           padding-left: 1.5rem;
-          margin-left: 0.5rem;
+          margin-left: 0;
         }
         .week-header::before {
-          left: -1.8rem;
+          left: -1.85rem;
         }
         .songs-grid {
           grid-template-columns: 1fr;
         }
-        .search-container {
-          padding-left: 0;
-          justify-content: center;
-        }
-        /* Style for the Weekly Theme subtitle */
-      }
-      .week-theme {
-        display: block;
-        font-size: 0.9rem;
-        font-weight: 400;
-        text-transform: none;
-        letter-spacing: normal;
-        color: var(--text-main);
-        margin-top: 0.25rem;
-        /* font-style: italic; */
       }
     </style>
   </head>
@@ -367,7 +452,11 @@
             oninput="handleSearch(this.value)"
           />
         </div>
-        <div class="timeline" id="timeline-container"></div>
+
+        <div class="library-wrapper">
+          <div id="side-nav"></div>
+          <div class="timeline" id="timeline-container"></div>
+        </div>
       </div>
 
       <div id="stats" class="tab-content">
@@ -376,7 +465,30 @@
     </div>
 
     <script>
-      const rawData = [
+      let rawData = [
+        {
+          postedBy: "Dara",
+          postedOn: "11/10/2024 15:14:14",
+          link: "https://www.youtube.com/watch?v=QH2-TGUlwu4",
+          metadata: {
+            genre: "Novelty",
+            band: "N/A",
+            title: "Nyan Cat",
+          },
+        },
+        {
+          postedBy: "Dara",
+          postedOn: "11/3/2024 12:00:00",
+          link: "https://www.youtube.com/watch?v=ZZ5LpwO-An4",
+          metadata: {
+            genre: "Novelty",
+            band: "N/A",
+            title: "Help I'm Alive (Dancing Banana Remix)",
+          },
+        },
+      ];
+
+      rawData = [
         {
           link: "https://www.youtube.com/watch?v=oJVClkXMmzc",
           postedOn: "17/02/2023 10:39:11",
@@ -5917,12 +6029,26 @@
         "week13-2026": "Ireland",
         "week14-2026": "Existential Reflection",
         "week15-2026": "French Chanson",
-        "week16-2026": "Sleeper",
+        "week16-2026": "Sleeper and Indie Pop",
       };
 
       let searchQuery = "";
+      let scrollObserver = null;
+      const monthNames = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
 
-      // Parse date strings
       function parseDate(dateStr) {
         const [datePart, timePart] = dateStr.split(" ");
         const [day, month, year] = datePart.split("/");
@@ -5930,7 +6056,6 @@
         return new Date(year, month - 1, day, hour, min, sec);
       }
 
-      // Calculate ISO Week Number
       function getWeekData(date) {
         const d = new Date(
           Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
@@ -5976,7 +6101,6 @@
           .classList.add("active");
         document.getElementById(tabId).classList.add("active");
 
-        // Re-trigger animations in the new tab if needed
         setTimeout(initAnimations, 50);
       }
 
@@ -5985,8 +6109,16 @@
         renderLibrary();
       }
 
+      function scrollToGroup(id) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth" });
+        }
+      }
+
       function renderLibrary() {
         const container = document.getElementById("timeline-container");
+        const sideNavContainer = document.getElementById("side-nav");
         const grouped = {};
 
         const filteredSongs = songs.filter((song) => {
@@ -6000,13 +6132,16 @@
 
         filteredSongs.forEach((song) => {
           if (!grouped[song.sortKey]) {
-            // Create a key that matches your themesData (e.g., "week11-2026")
             const themeKey = `week${song.week}-${song.year}`;
             const themeTitle = themesData[themeKey] || "";
 
             grouped[song.sortKey] = {
+              id: `group-${song.year}-${song.week}`,
               display: `Week ${song.week}, ${song.year}`,
               theme: themeTitle,
+              year: song.year,
+              monthIndex: song.dateObj.getMonth(),
+              monthName: monthNames[song.dateObj.getMonth()],
               items: [],
             };
           }
@@ -6017,20 +6152,45 @@
         const animClass = searchQuery ? "" : "fade-up";
 
         let html = "";
+        let sideNavHtml = "";
+
+        let currentYear = null;
+        let currentMonth = null;
 
         if (filteredSongs.length === 0) {
           html = `<div style="color: var(--text-muted); padding: 2rem 0;">No results found for "${searchQuery}"</div>`;
+          sideNavContainer.innerHTML = "";
         } else {
           sortedKeys.forEach((key) => {
             const group = grouped[key];
+
+            // Build Side Navigation (Accordion Grouping)
+            if (group.year !== currentYear) {
+              if (currentYear !== null) {
+                sideNavHtml += `</div></div>`; // Close previous months div and year group div
+              }
+              currentYear = group.year;
+              sideNavHtml += `
+                <div class="nav-year-group" id="nav-group-${currentYear}">
+                  <div class="side-year" onclick="scrollToGroup('${group.id}')">${currentYear}</div>
+                  <div class="side-months">
+              `;
+              currentMonth = null;
+            }
+            if (group.monthName !== currentMonth) {
+              currentMonth = group.monthName;
+              sideNavHtml += `<div class="side-month" data-month="${currentMonth}" onclick="scrollToGroup('${group.id}')">${currentMonth}</div>`;
+            }
+
+            // Build Main Timeline
             html += `
-        <div class="week-group ${animClass}">
-            <div class="week-header">
-                ${group.display}
-                ${group.theme ? `<span class="week-theme">Theme: ${group.theme}</span>` : ""}
-            </div>
-            <div class="songs-grid">
-      `;
+              <div class="week-group ${animClass}" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
+                  <div class="week-header">
+                      ${group.display}
+                      ${group.theme ? `<span class="week-theme">${group.theme}</span>` : ""}
+                  </div>
+                  <div class="songs-grid">
+            `;
 
             group.items.forEach((song) => {
               const videoId = getYoutubeId(song.link);
@@ -6039,35 +6199,42 @@
                 : "https://via.placeholder.com/480x270.png?text=No+Cover";
 
               html += `
-            <a href="${song.link}" target="_blank" class="card ${animClass}">
-                <img src="${thumbUrl}" alt="Thumbnail">
-                <div class="card-content">
-                    <h3 class="card-poster">${song.postedBy}</h3>
-                    <div class="card-track-info">
-                        <strong>${song.metadata.band || "Unknown Artist"}</strong> 
-                    </div>
-                    <div class="card-track-info">
-                      ${song.metadata.title || "Untitled"}
-                    </div>
-                    <div class="card-meta">
-                        <span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-                    </div>
-                    <div class="tags">
-                        <span class="tag">${song.metadata.genre || "Misc"}</span>
-                    </div>
-                </div>
-            </a>
-        `;
+                  <a href="${song.link}" target="_blank" class="card ${animClass}">
+                      <img src="${thumbUrl}" alt="Thumbnail">
+                      <div class="card-content">
+                          <h3 class="card-poster">${song.postedBy}</h3>
+                          <div class="card-track-info">
+                              <strong>${song.metadata.band || "Unknown Artist"}</strong> 
+                          </div>
+                          <div class="card-track-info">
+                            ${song.metadata.title || "Untitled"}
+                          </div>
+                          <div class="card-meta">
+                              <span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                          </div>
+                          <div class="tags">
+                              <span class="tag">${song.metadata.genre || "Misc"}</span>
+                          </div>
+                      </div>
+                  </a>
+              `;
             });
             html += `</div></div>`;
           });
+          // Close the very last group
+          if (currentYear !== null) {
+            sideNavHtml += `</div></div>`;
+          }
         }
 
         container.innerHTML = html;
+        sideNavContainer.innerHTML = sideNavHtml;
 
         if (!searchQuery) {
           initAnimations();
         }
+
+        initScrollSpy();
       }
 
       function renderStats() {
@@ -6132,38 +6299,78 @@
           ${generateTopListHTML(userCounts, "Top Contributors", 5, true)}
           ${generateTopListHTML(genreCounts, "Top Genres", 15, false)}
           ${generateTopListHTML(bandCounts, "Top Artists", 15, false)}
-          
         `;
       }
 
-      // Intersection Observer for scroll animations
       function initAnimations() {
         const observer = new IntersectionObserver(
           (entries) => {
             entries.forEach((entry) => {
               if (entry.isIntersecting) {
                 entry.target.classList.add("visible");
-                // Optional: stop observing once it's visible so it doesn't animate out and back in
                 observer.unobserve(entry.target);
               }
             });
           },
+          { threshold: 0.1, rootMargin: "0px 0px -50px 0px" },
+        );
+
+        document
+          .querySelectorAll(".fade-up")
+          .forEach((el) => observer.observe(el));
+      }
+
+      function initScrollSpy() {
+        if (scrollObserver) {
+          scrollObserver.disconnect();
+        }
+
+        // Highlight the side nav based on viewport scroll
+        scrollObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                const year = entry.target.getAttribute("data-year");
+                const month = entry.target.getAttribute("data-month");
+
+                // Handle year grouping accordion
+                document.querySelectorAll(".nav-year-group").forEach((el) => {
+                  if (el.id === `nav-group-${year}`) {
+                    el.classList.add("active");
+                  } else {
+                    el.classList.remove("active");
+                  }
+                });
+
+                // Handle active month styling
+                document
+                  .querySelectorAll(".side-month")
+                  .forEach((el) => el.classList.remove("active"));
+                const activeGroup = document.getElementById(
+                  `nav-group-${year}`,
+                );
+                if (activeGroup) {
+                  const activeMonthEl = activeGroup.querySelector(
+                    `.side-month[data-month="${month}"]`,
+                  );
+                  if (activeMonthEl) activeMonthEl.classList.add("active");
+                }
+              }
+            });
+          },
           {
-            threshold: 0.1,
-            rootMargin: "0px 0px -50px 0px",
+            rootMargin: "-10% 0px -70% 0px",
           },
         );
 
-        document.querySelectorAll(".fade-up").forEach((el) => {
-          observer.observe(el);
+        document.querySelectorAll(".week-group").forEach((el) => {
+          scrollObserver.observe(el);
         });
       }
 
-      // Initialize
       document.addEventListener("DOMContentLoaded", () => {
         renderLibrary();
         renderStats();
-        // Slight delay to ensure DOM is fully rendered before observing
         setTimeout(initAnimations, 100);
       });
     </script>
