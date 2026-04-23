@@ -630,26 +630,33 @@
         if (el) {
           isManualScrolling = true;
 
+          // 1. Temporarily disable all fade-up transitions to save memory
+          const style = document.createElement("style");
+          style.innerHTML = ".fade-up { transition: none !important; }";
+          document.head.appendChild(style);
+
           const year = el.getAttribute("data-year");
           const month = el.getAttribute("data-month");
 
-          // Update UI first
           updateSidebarUI(year, month);
 
-          // Calculate position manually to avoid Safari's scrollIntoView crash
-          const headerOffset = 20;
-          const elementPosition = el.getBoundingClientRect().top;
-          const offsetPosition =
-            elementPosition + window.pageYOffset - headerOffset;
+          // 2. Wait for the layout to settle before moving
+          requestAnimationFrame(() => {
+            const headerOffset = 20;
+            const elementPosition = el.getBoundingClientRect().top;
+            const offsetPosition =
+              elementPosition + window.pageYOffset - headerOffset;
 
-          window.scrollTo({
-            top: offsetPosition,
-            behavior: "smooth",
+            window.scrollTo({
+              top: offsetPosition,
+              behavior: "smooth",
+            });
           });
 
           setTimeout(() => {
             isManualScrolling = false;
-          }, 1000);
+            document.head.removeChild(style); // Re-enable animations
+          }, 1200);
         }
       }
 
