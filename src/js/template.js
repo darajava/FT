@@ -4,7 +4,7 @@ const path = require("path");
 // Configuration
 const TEMPLATE_FILE = "../index.template.html";
 const OUTPUT_FILE = "../../index.html";
-const TUNES_FILE = "../output/friday_tunes.json";
+const TUNES_FILE = "../output/friday_tunes_context.json";
 const THEMES_FILE = "../output/friday_themes.json";
 
 try {

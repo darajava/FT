@@ -19,16 +19,6 @@ function normalizeUrl(url) {
   return url;
 }
 
-// Robust Friday check for "11/10/2024 15:14:14"
-function isFriday(dateString) {
-  return true;
-  if (!dateString) return false;
-  // Replace slashes with dashes or just parse - JS Date can usually handle MM/DD/YYYY
-  const date = new Date(dateString);
-  // check if valid date and getDay is 5 (Friday)
-  return !isNaN(date.getTime()) && (date.getDay() === 5 || date.getDay() === 6); // Also include Saturday in case of timezone issues
-}
-
 async function getMetadata(item) {
   try {
     const cleanUrl = normalizeUrl(item.link);
@@ -76,6 +66,7 @@ async function getMetadata(item) {
         ? new Date(item.posted_date).toISOString()
         : item.posted_date,
       metadata: metadata,
+      context: item.context || [],
     };
   } catch (error) {
     console.error(`❌ Failed for ${item.link}:`, error.message);
@@ -88,15 +79,12 @@ async function run() {
     const data = await fs.readFile("./output/friday_tunes.json", "utf8");
     const tunes = JSON.parse(data);
 
-    // Filter by Friday before processing to save API costs
-    const fridayTunes = tunes.filter((tune) => isFriday(tune.postedOn));
-
     console.log(
-      `📂 Found ${fridayTunes.length} Friday tunes (out of ${tunes.length} total). Processing...`,
+      `📂 Found ${tunes.length} Friday tunes (out of ${tunes.length} total). Processing...`,
     );
 
     // 2. Map the tunes to "limited" promises
-    const tasks = fridayTunes.map((tune) => {
+    const tasks = tunes.map((tune) => {
       return limit(() => {
         console.log(`🔍 Starting: ${tune.link}`);
         return getMetadata(tune);

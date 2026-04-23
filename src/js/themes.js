@@ -56,7 +56,10 @@ async function getWeekTheme(weekKey, songs) {
 
 async function run() {
   try {
-    const data = await fs.readFile("./output/friday_tunes.json", "utf8");
+    const data = await fs.readFile(
+      "./output/friday_tunes_enriched.json",
+      "utf8",
+    );
     const tunes = JSON.parse(data);
 
     // Grouping logic

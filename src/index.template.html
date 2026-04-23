@@ -276,8 +276,11 @@
           transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
           box-shadow 0.4s ease;
         text-decoration: none;
-        display: block;
+        display: flex; /* Changed to flex for vertical alignment */
+        flex-direction: column;
+        height: 100%;
         color: inherit;
+        cursor: pointer;
       }
 
       .card:hover {
@@ -285,16 +288,21 @@
         box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
       }
 
-      .card img {
+      .card img,
+      .card iframe {
         width: 100%;
         aspect-ratio: 16/9;
         object-fit: cover;
         display: block;
         background-color: var(--border);
+        border: none;
       }
 
       .card-content {
         padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
       }
 
       .card-poster {
@@ -346,6 +354,7 @@
         display: flex;
         gap: 0.5rem;
         flex-wrap: wrap;
+        margin-bottom: 1rem;
       }
 
       .tag {
@@ -356,6 +365,38 @@
         border-radius: 4px;
         font-size: 0.7rem;
         font-weight: 500;
+      }
+
+      /* Chat Style Reply */
+      .reply-container {
+        margin-top: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        position: relative;
+        padding-top: 0.5rem;
+      }
+
+      .reply-poster {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        margin-bottom: 0.25rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        margin-left: 0.2rem;
+      }
+
+      .chat-bubble {
+        background-color: var(--bg);
+        border: 1px solid var(--border);
+        padding: 0.5rem 0.75rem;
+        border-radius: 4px 12px 12px 12px;
+        font-size: 0.85rem;
+        color: var(--text-main);
+        position: relative;
+        max-width: 95%;
+        line-height: 1.4;
       }
 
       /* Stats Grid */
@@ -516,6 +557,24 @@
             band: "N/A",
             title: "Nyan Cat",
           },
+          reply: {
+            poster: "Alice",
+            reply: "The internet's most iconic flying feline! 🐱🌈",
+          },
+        },
+        {
+          postedBy: "Dara",
+          postedOn: "11/10/2024 15:14:14",
+          link: "https://www.youtube.com/watch?v=QH2-TGUlwu4",
+          metadata: {
+            genre: "Novelty",
+            band: "N/A",
+            title: "Nyan Cat",
+          },
+          reply: {
+            poster: "Alice",
+            reply: "Legendary.",
+          },
         },
         {
           postedBy: "Dara",
@@ -525,6 +584,10 @@
             genre: "Novelty",
             band: "N/A",
             title: "Help I'm Alive (Dancing Banana Remix)",
+          },
+          reply: {
+            poster: null,
+            reply: null,
           },
         },
       ];
@@ -678,6 +741,25 @@
         }
       }
 
+      function playVideo(cardElement, videoId) {
+        const placeholder = cardElement.querySelector(".video-placeholder");
+        if (!placeholder || !videoId) return;
+
+        const origin = window.location.origin;
+        const src = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&origin=${origin}`;
+
+        placeholder.innerHTML = `
+          <iframe 
+            src="${src}" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+          </iframe>
+        `;
+
+        cardElement.onclick = null;
+        cardElement.style.cursor = "default";
+      }
+
       function renderLibrary() {
         const container = document.getElementById("timeline-container");
         const sideNavContainer = document.getElementById("side-nav");
@@ -767,9 +849,22 @@
 
               const bandRegex = new RegExp(song.metadata.band, "i");
 
+              // Calculate Reply HTML
+              let replyHtml = "";
+              if (song.reply && song.reply.poster && song.reply.reply) {
+                replyHtml = `
+                    <div class="reply-container">
+                      <div class="reply-poster">${song.reply.poster} Said</div>
+                      <div class="chat-bubble">"${song.reply.reply}"</div>
+                    </div>
+                  `;
+              }
+
               groupGridHtml += `
-                  <a href="${song.link}" target="_blank" class="card">
-                      <img src="${thumbUrl}" alt="Thumbnail" loading="lazy">
+                  <div class="card" onclick="playVideo(this, '${videoId}')">
+                      <div class="video-placeholder">
+                        <img src="${thumbUrl}" alt="Thumbnail" loading="lazy">
+                      </div>
                       <div class="card-content">
                           <h3 class="card-poster">${song.postedBy}</h3>
                           <div class="card-track-info"><strong>${song.metadata.band || "Unknown Artist"}</strong></div>
@@ -781,8 +876,9 @@
                           }</div>
                           <div class="card-meta"><span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
                           <div class="tags"><span class="tag">${song.metadata.genre || "Misc"}</span></div>
+                          ${replyHtml}
                       </div>
-                  </a>
+                  </div>
               `;
             });
             gridHTMLMap[group.id] = groupGridHtml;

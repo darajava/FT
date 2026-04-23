@@ -10,43 +10,63 @@ function exportFridayTunes(filePath, outputName = "output/friday_tunes.json") {
     const data = fs.readFileSync(filePath, "utf8");
 
     // Regex to match the WhatsApp/Chat format: [DD/MM/YYYY, HH:mm:ss] Name: Message
-    // It accounts for multi-line messages using a lookahead
     const messageRegex =
       /\[(\d{2}\/\d{2}\/\d{4}),\s(\d{2}:\d{2}:\d{2})\]\s(.*?):\s([\s\S]*?)(?=\n\[\d{2}\/\d{2}\/\d{4}|$)/g;
 
-    // Updated to include m.youtube.com
     const youtubeRegex =
       /(https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+[^?\s]*)/i;
 
-    const results = [];
+    const allMessages = [];
     let match;
 
     while ((match = messageRegex.exec(data)) !== null) {
-      const [_, dateStr, timeStr, author, message] = match;
+      const [_, dateStr, timeStr, author, messageText] = match;
 
-      // Parse date to check if it's a Friday
-      // Format: DD/MM/YYYY
       const parts = dateStr.split("/");
       const dateObj = new Date(
         `${parts[2]}-${parts[1]}-${parts[0]}T${timeStr}`,
       );
 
-      // 5 is Friday in JS Date.getDay()
-      const isFriday = dateObj.getDay() === 5;
-      const hasFT = message.toUpperCase().includes("FT:");
-      const ytMatch = message.match(youtubeRegex);
+      allMessages.push({
+        dateObj,
+        author: author.trim(),
+        message: messageText.trim(),
+      });
+    }
 
-      // We include it if:
-      // 1. It contains "FT:" and a link (regardless of day)
-      // 2. Or it's a Friday and contains a YouTube link
+    const results = [];
+
+    for (let i = 0; i < allMessages.length; i++) {
+      const current = allMessages[i];
+      const ytMatch = current.message.match(youtubeRegex);
+
       if (ytMatch) {
+        // Take a slice of up to 5 messages starting from the current one
+        const slice = allMessages.slice(i, i + 5);
+        const contextMessages = [];
+
+        for (let j = 0; j < slice.length; j++) {
+          const msg = slice[j];
+          // Always allow the first message (the one containing the YT link)
+          if (j === 0) {
+            contextMessages.push(`${msg.author}: ${msg.message}`);
+          } else {
+            // If any subsequent message contains a link, stop adding to context immediately
+            if (/https?:\/\//i.test(msg.message)) {
+              break;
+            }
+            contextMessages.push(`${msg.author}: ${msg.message}`);
+          }
+        }
+
         results.push({
           link: ytMatch[0].replace(
             "https://m.youtube.com",
             "https://www.youtube.com",
-          ), // Normalize m.youtube.com to www.youtube.com
-          postedOn: dateObj.toISOString(),
-          postedBy: author.trim(),
+          ),
+          postedOn: current.dateObj.toISOString(),
+          postedBy: current.author,
+          context: contextMessages,
         });
       }
     }
@@ -58,5 +78,4 @@ function exportFridayTunes(filePath, outputName = "output/friday_tunes.json") {
   }
 }
 
-// Run the script
 exportFridayTunes("chat.txt");
