@@ -236,8 +236,6 @@
         color: var(--text-muted);
         font-weight: 900;
         margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
       }
 
       .week-header::before {
@@ -259,7 +257,6 @@
         text-transform: none;
         letter-spacing: normal;
         color: var(--text-muted);
-        margin-left: 0.5rem;
       }
 
       .songs-grid {
@@ -319,12 +316,18 @@
         text-overflow: ellipsis;
       }
 
+      .italic {
+        font-style: italic;
+        opacity: 0.9;
+        transition: opacity 0.3s ease;
+      }
+
       .card-meta {
         display: flex;
         justify-content: space-between;
         font-size: 0.8rem;
         color: var(--text-muted);
-        margin-top: 0.75rem;
+        margin-top: 0.25rem;
         margin-bottom: 0.75rem;
       }
 
@@ -408,10 +411,19 @@
       }
 
       .big-stat {
-        font-size: 4rem;
+        font-size: 5rem;
         font-weight: 300;
         color: var(--text-main);
         line-height: 1;
+      }
+
+      /* Specific adjustment for centering content in the Total Songs card */
+      .stat-card-centered {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
       }
 
       .num-results {
@@ -623,6 +635,21 @@
         });
       }
 
+      function toggleYear(year) {
+        const targetGroup = document.getElementById(`nav-group-${year}`);
+        if (!targetGroup) return;
+
+        const isActive = targetGroup.classList.contains("active");
+
+        document.querySelectorAll(".nav-year-group").forEach((el) => {
+          el.classList.remove("active");
+        });
+
+        if (!isActive) {
+          targetGroup.classList.add("active");
+        }
+      }
+
       function scrollToGroup(id) {
         const el = document.getElementById(id);
         if (el) {
@@ -708,7 +735,7 @@
               currentYear = group.year;
               sideNavHtml += `
                 <div class="nav-year-group" id="nav-group-${currentYear}">
-                  <div class="side-year" onclick="scrollToGroup('${group.id}')">${currentYear}</div>
+                  <div class="side-year" onclick="toggleYear(${currentYear})">${currentYear}</div>
                   <div class="side-months">
               `;
               currentMonth = null;
@@ -721,8 +748,11 @@
             html += `
               <div class="week-group" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
                   <div class="week-header">
-                      ${group.display}
-                      ${group.theme ? `<span class="week-theme">${group.theme}</span>` : ""}
+                      <div>
+                        ${group.display}
+                        </div>
+
+                      ${group.theme ? `<div class="week-theme">${group.theme}</div>` : ""}
                   </div>
                   <div class="songs-grid" id="grid-${group.id}"></div>
               </div>
@@ -735,15 +765,17 @@
                 ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
                 : "https://via.placeholder.com/480x270.png?text=No+Cover";
 
+              const bandRegex = new RegExp(song.metadata.band, "i");
+
               groupGridHtml += `
                   <a href="${song.link}" target="_blank" class="card">
                       <img src="${thumbUrl}" alt="Thumbnail" loading="lazy">
                       <div class="card-content">
                           <h3 class="card-poster">${song.postedBy}</h3>
                           <div class="card-track-info"><strong>${song.metadata.band || "Unknown Artist"}</strong></div>
-                          <div class="card-track-info">${
+                          <div class="card-track-info italic">${
                             song.metadata.title
-                              .replace(song.metadata.band, "")
+                              .replace(bandRegex, "")
                               .trim()
                               .replace(/^ ?- ?/, "") || "Untitled"
                           }</div>
@@ -818,16 +850,35 @@
             .sort((a, b) => b[1] - a[1])
             .slice(0, limit)
             .filter(([name]) => name != "N/A");
+
+          if (sorted.length === 0) return "";
+
+          // Find the highest value to normalize the bars
+          const maxVal = sorted[0][1];
+
           let listHtml = `<ul class="stat-list">`;
           sorted.forEach(([key, val]) => {
-            const pct = Math.round((val / totalSongs) * 100);
-            listHtml += `<li><div class="stat-row"><span>${key}</span><strong>${isPercentage ? `${pct}%` : val}</strong></div><div class="stat-bar-container"><div class="stat-bar" style="width: ${pct}%"></div></div></li>`;
+            // visualPct is relative to the top item (normalized)
+            const visualPct = (val / maxVal) * 100;
+            // labelPct is relative to the total number of songs
+            const labelPct = Math.round((val / songs.length) * 100);
+
+            listHtml += `
+            <li>
+              <div class="stat-row">
+                <span>${key}</span>
+                <strong>${isPercentage ? `${labelPct}%` : val}</strong>
+              </div>
+              <div class="stat-bar-container">
+                <div class="stat-bar" style="width: ${visualPct}%"></div>
+              </div>
+            </li>`;
           });
           return `<div class="stat-card"><h2>${title}</h2>${listHtml}</ul></div>`;
         }
 
         container.innerHTML =
-          `<div class="stat-card" style="text-align: center;"><h2>Total Songs</h2><div class="big-stat">${totalSongs}</div></div>` +
+          `<div class="stat-card stat-card-centered"><h2>Total Songs</h2><div class="big-stat">${totalSongs}</div></div>` +
           generateTopListHTML(userCounts, "Top Contributors", 5, true) +
           generateTopListHTML(genreCounts, "Top Genres", 15, false) +
           generateTopListHTML(bandCounts, "Top Artists", 16, false);
