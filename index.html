@@ -54,6 +54,8 @@
         margin-bottom: 2.5rem;
         display: flex;
         justify-content: center;
+        align-items: center;
+        flex-direction: column;
         padding-left: 0;
       }
 
@@ -228,6 +230,8 @@
         color: var(--text-muted);
         font-weight: 900;
         margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
       }
 
       .week-header::before {
@@ -244,13 +248,20 @@
       }
 
       .week-theme {
-        display: block;
+        /* display: block; */
         font-size: 0.9rem;
         font-weight: 400;
         text-transform: none;
         letter-spacing: normal;
         color: var(--text-main);
-        margin-top: 0.25rem;
+        margin-left: 0.5rem;
+        font-style: italic;
+      }
+
+      .week-theme::before {
+        content: "🎵";
+        margin-right: 0.5rem;
+        font-style: normal;
       }
 
       .songs-grid {
@@ -393,6 +404,14 @@
         line-height: 1;
       }
 
+      .num-results {
+        margin-top: 0.4rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+        align-self: center;
+        opacity: 0;
+      }
+
       /* Animations */
       .fade-up {
         opacity: 0;
@@ -451,6 +470,7 @@
             placeholder="Search by person, genre, artist or song..."
             oninput="handleSearch(this.value)"
           />
+          <div class="num-results" id="num-results">0 results</div>
         </div>
 
         <div class="library-wrapper">
@@ -6029,7 +6049,7 @@
         "week13-2026": "Ireland",
         "week14-2026": "Existential Reflection",
         "week15-2026": "French Chanson",
-        "week16-2026": "Sleeper and Indie Pop",
+        "week16-2026": "Sleeper!",
       };
 
       let searchQuery = "";
@@ -6130,6 +6150,15 @@
           );
         });
 
+        document.getElementById("num-results").textContent =
+          `${filteredSongs.length} results`;
+
+        if (searchQuery == "") {
+          document.getElementById("num-results").style.opacity = "0";
+        } else {
+          document.getElementById("num-results").style.opacity = "1";
+        }
+
         filteredSongs.forEach((song) => {
           if (!grouped[song.sortKey]) {
             const themeKey = `week${song.week}-${song.year}`;
@@ -6187,7 +6216,7 @@
               <div class="week-group ${animClass}" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
                   <div class="week-header">
                       ${group.display}
-                      ${group.theme ? `<span class="week-theme">${group.theme}</span>` : ""}
+                      ${group.theme ? `<span class="week-theme">Theme: ${group.theme}</span>` : ""}
                   </div>
                   <div class="songs-grid">
             `;
