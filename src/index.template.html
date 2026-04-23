@@ -147,7 +147,6 @@
         flex-direction: column;
         align-items: flex-end;
         padding-right: 1.5rem;
-        /* Remove max-height scrolling so it acts like a true fixed nav */
       }
 
       .nav-year-group {
@@ -184,12 +183,12 @@
         overflow: hidden;
         opacity: 0;
         transition:
-          max-height 0.4s ease,
-          opacity 0.4s ease;
+          max-height 0.1s ease,
+          opacity 0.1s ease;
       }
 
       .nav-year-group.active .side-months {
-        max-height: 300px; /* Tall enough to fit 12 months */
+        max-height: 300px;
         opacity: 1;
         margin-top: 0.25rem;
         margin-bottom: 0.5rem;
@@ -226,6 +225,7 @@
       .week-group {
         margin-bottom: 3.5rem;
         scroll-margin-top: 4rem;
+        min-height: 100px; /* Preserve space for virtualization */
       }
 
       .week-header {
@@ -254,7 +254,6 @@
       }
 
       .week-theme {
-        /* display: block; */
         font-size: 1rem;
         font-weight: 600;
         text-transform: none;
@@ -267,6 +266,7 @@
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
         gap: 1.5rem;
+        min-height: 50px;
       }
 
       /* Cards */
@@ -334,7 +334,7 @@
       }
 
       *::-webkit-scrollbar {
-        display: none !important; /* Chrome, Safari, and Opera */
+        display: none !important;
         width: 0 !important;
         height: 0 !important;
       }
@@ -424,22 +424,21 @@
 
       /* Animations */
       .fade-up {
-        /* opacity: 1; */
-        /* transform: translateY(20px);
+        opacity: 0;
+        transform: translateY(20px);
         transition:
           opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-          transform 0.8s cubic-bezier(0.16, 1, 0.3, 1); */
+          transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
       }
 
       .fade-up.visible {
-        /* opacity: 1;
-        transform: translateY(0); */
+        opacity: 1;
+        transform: translateY(0);
       }
 
-      /* Responsive adjustments */
       @media screen and (max-width: 768px) {
         #side-nav {
-          width: 35px; /* Slimmer on mobile */
+          width: 35px;
           padding-right: 0.75rem;
         }
         .side-year {
@@ -532,6 +531,8 @@
 
       let searchQuery = "";
       let scrollObserver = null;
+      let virtualObserver = null;
+      let gridHTMLMap = {};
       let isManualScrolling = false;
       const monthNames = [
         "Jan",
@@ -592,8 +593,6 @@
           .querySelector(`.tab[onclick="switchTab('${tabId}')"]`)
           .classList.add("active");
         document.getElementById(tabId).classList.add("active");
-
-        setTimeout(initAnimations, 50);
       }
 
       function handleSearch(val) {
@@ -605,7 +604,6 @@
         const targetGroup = document.getElementById(`nav-group-${year}`);
         if (!targetGroup) return;
 
-        // Only update if the active year group has actually changed
         if (!targetGroup.classList.contains("active")) {
           document.querySelectorAll(".nav-year-group").forEach((el) => {
             el.classList.remove("active");
@@ -630,17 +628,11 @@
         if (el) {
           isManualScrolling = true;
 
-          // 1. Temporarily disable all fade-up transitions to save memory
-          const style = document.createElement("style");
-          style.innerHTML = ".fade-up { transition: none !important; }";
-          document.head.appendChild(style);
-
           const year = el.getAttribute("data-year");
           const month = el.getAttribute("data-month");
 
           updateSidebarUI(year, month);
 
-          // 2. Wait for the layout to settle before moving
           requestAnimationFrame(() => {
             const headerOffset = 20;
             const elementPosition = el.getBoundingClientRect().top;
@@ -655,8 +647,7 @@
 
           setTimeout(() => {
             isManualScrolling = false;
-            document.head.removeChild(style); // Re-enable animations
-          }, 1200);
+          }, 1000);
         }
       }
 
@@ -664,6 +655,7 @@
         const container = document.getElementById("timeline-container");
         const sideNavContainer = document.getElementById("side-nav");
         const grouped = {};
+        gridHTMLMap = {};
 
         const filteredSongs = songs.filter((song) => {
           return (
@@ -677,11 +669,8 @@
         document.getElementById("num-results").textContent =
           `${filteredSongs.length} results`;
 
-        if (searchQuery == "") {
-          document.getElementById("num-results").style.opacity = "0";
-        } else {
-          document.getElementById("num-results").style.opacity = "1";
-        }
+        document.getElementById("num-results").style.opacity =
+          searchQuery == "" ? "0" : "1";
 
         filteredSongs.forEach((song) => {
           if (!grouped[song.sortKey]) {
@@ -702,14 +691,10 @@
         });
 
         const sortedKeys = Object.keys(grouped).sort().reverse();
-        const animClass = searchQuery ? "" : "fade-up";
-
         let html = "";
         let sideNavHtml = "";
-
         let currentYear = null;
         let currentMonth = null;
-        let entryCount = 0;
 
         if (filteredSongs.length === 0) {
           html = `<div style="color: var(--text-muted); padding: 2rem 0;">No results found for "${searchQuery}"</div>`;
@@ -718,11 +703,8 @@
           sortedKeys.forEach((key) => {
             const group = grouped[key];
 
-            // Build Side Navigation (Accordion Grouping)
             if (group.year !== currentYear) {
-              if (currentYear !== null) {
-                sideNavHtml += `</div></div>`; // Close previous months div and year group div
-              }
+              if (currentYear !== null) sideNavHtml += `</div></div>`;
               currentYear = group.year;
               sideNavHtml += `
                 <div class="nav-year-group" id="nav-group-${currentYear}">
@@ -736,59 +718,44 @@
               sideNavHtml += `<div class="side-month" data-month="${currentMonth}" onclick="scrollToGroup('${group.id}')">${currentMonth}</div>`;
             }
 
-            // Build Main Timeline
-            // If it's one of the first two groups, don't use the fade-up class
-            const currentGroupAnimClass =
-              !searchQuery && entryCount < 2 ? "" : animClass;
-
             html += `
-              <div class="week-group ${currentGroupAnimClass}" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
+              <div class="week-group" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
                   <div class="week-header">
                       ${group.display}
                       ${group.theme ? `<span class="week-theme">${group.theme}</span>` : ""}
                   </div>
-                  <div class="songs-grid">
+                  <div class="songs-grid" id="grid-${group.id}"></div>
+              </div>
             `;
 
+            let groupGridHtml = "";
             group.items.forEach((song) => {
               const videoId = getYoutubeId(song.link);
               const thumbUrl = videoId
                 ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
                 : "https://via.placeholder.com/480x270.png?text=No+Cover";
 
-              html += `
-                  <a href="${song.link}" target="_blank" class="card ${currentGroupAnimClass}">
+              groupGridHtml += `
+                  <a href="${song.link}" target="_blank" class="card">
                       <img src="${thumbUrl}" alt="Thumbnail" loading="lazy">
                       <div class="card-content">
                           <h3 class="card-poster">${song.postedBy}</h3>
-                          <div class="card-track-info">
-                              <strong>${song.metadata.band || "Unknown Artist"}</strong> 
-                          </div>
-                          <div class="card-track-info">
-                            ${
-                              song.metadata.title
-                                .replace(song.metadata.band, "")
-                                .trim()
-                                .replace(/^ ?- ?/, "") || "Untitled"
-                            }
-                          </div>
-                          <div class="card-meta">
-                              <span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
-                          </div>
-                          <div class="tags">
-                              <span class="tag">${song.metadata.genre || "Misc"}</span>
-                          </div>
+                          <div class="card-track-info"><strong>${song.metadata.band || "Unknown Artist"}</strong></div>
+                          <div class="card-track-info">${
+                            song.metadata.title
+                              .replace(song.metadata.band, "")
+                              .trim()
+                              .replace(/^ ?- ?/, "") || "Untitled"
+                          }</div>
+                          <div class="card-meta"><span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
+                          <div class="tags"><span class="tag">${song.metadata.genre || "Misc"}</span></div>
                       </div>
                   </a>
               `;
             });
-            html += `</div></div>`;
-            entryCount++;
+            gridHTMLMap[group.id] = groupGridHtml;
           });
-          // Close the very last group
-          if (currentYear !== null) {
-            sideNavHtml += `</div></div>`;
-          }
+          if (currentYear !== null) sideNavHtml += `</div></div>`;
         }
 
         container.innerHTML = html;
@@ -799,20 +766,39 @@
           updateSidebarUI(firstGroup.year, firstGroup.monthName);
         }
 
-        if (!searchQuery) {
-          initAnimations();
-        }
-
+        initVirtualization();
         initScrollSpy();
+      }
+
+      function initVirtualization() {
+        if (virtualObserver) virtualObserver.disconnect();
+
+        virtualObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                const groupId = entry.target.id;
+                const gridEl = document.getElementById(`grid-${groupId}`);
+                if (gridEl && !gridEl.innerHTML) {
+                  gridEl.innerHTML = gridHTMLMap[groupId];
+                }
+              }
+            });
+          },
+          { rootMargin: "800px 0px" },
+        );
+
+        document.querySelectorAll(".week-group").forEach((el) => {
+          virtualObserver.observe(el);
+        });
       }
 
       function renderStats() {
         const container = document.getElementById("stats-container");
         const totalSongs = songs.length;
-
-        const userCounts = {};
-        const genreCounts = {};
-        const bandCounts = {};
+        const userCounts = {},
+          genreCounts = {},
+          bandCounts = {};
 
         songs.forEach((song) => {
           userCounts[song.postedBy] = (userCounts[song.postedBy] || 0) + 1;
@@ -831,95 +817,46 @@
           const sorted = Object.entries(counts)
             .sort((a, b) => b[1] - a[1])
             .slice(0, limit)
-            .filter(([name, val]) => name != "N/A");
-
+            .filter(([name]) => name != "N/A");
           let listHtml = `<ul class="stat-list">`;
           sorted.forEach(([key, val]) => {
             const pct = Math.round((val / totalSongs) * 100);
-            const displayVal = isPercentage ? `${pct}%` : val;
-
-            listHtml += `
-                <li>
-                    <div class="stat-row">
-                        <span>${key}</span>
-                        <strong>${displayVal}</strong>
-                    </div>
-                    <div class="stat-bar-container">
-                        <div class="stat-bar" style="width: ${pct}%"></div>
-                    </div>
-                </li>
-            `;
+            listHtml += `<li><div class="stat-row"><span>${key}</span><strong>${isPercentage ? `${pct}%` : val}</strong></div><div class="stat-bar-container"><div class="stat-bar" style="width: ${pct}%"></div></div></li>`;
           });
-          listHtml += `</ul>`;
-
-          return `
-            <div class="stat-card fade-up">
-                <h2>${title}</h2>
-                ${listHtml}
-            </div>
-          `;
+          return `<div class="stat-card"><h2>${title}</h2>${listHtml}</ul></div>`;
         }
 
-        container.innerHTML = `
-        <div class="stat-card fade-up" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-          <h2>Total Songs</h2>
-          <div class="big-stat">${totalSongs}</div>
-          </div>
-          ${generateTopListHTML(userCounts, "Top Contributors", 5, true)}
-          ${generateTopListHTML(genreCounts, "Top Genres", 15, false)}
-          ${generateTopListHTML(bandCounts, "Top Artists", 16, false)}
-        `;
-      }
-
-      function initAnimations() {
-        const observer = new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              if (entry.isIntersecting) {
-                entry.target.classList.add("visible");
-                observer.unobserve(entry.target);
-              }
-            });
-          },
-          { threshold: 0.1, rootMargin: "0px 0px -50px 0px" },
-        );
-
-        document
-          .querySelectorAll(".fade-up")
-          .forEach((el) => observer.observe(el));
+        container.innerHTML =
+          `<div class="stat-card" style="text-align: center;"><h2>Total Songs</h2><div class="big-stat">${totalSongs}</div></div>` +
+          generateTopListHTML(userCounts, "Top Contributors", 5, true) +
+          generateTopListHTML(genreCounts, "Top Genres", 15, false) +
+          generateTopListHTML(bandCounts, "Top Artists", 16, false);
       }
 
       function initScrollSpy() {
-        if (scrollObserver) {
-          scrollObserver.disconnect();
-        }
-
+        if (scrollObserver) scrollObserver.disconnect();
         scrollObserver = new IntersectionObserver(
           (entries) => {
             if (isManualScrolling) return;
-
             entries.forEach((entry) => {
               if (entry.isIntersecting) {
-                const year = entry.target.getAttribute("data-year");
-                const month = entry.target.getAttribute("data-month");
-                updateSidebarUI(year, month);
+                updateSidebarUI(
+                  entry.target.getAttribute("data-year"),
+                  entry.target.getAttribute("data-month"),
+                );
               }
             });
           },
-          {
-            rootMargin: "-5% 0px -85% 0px",
-          },
+          { rootMargin: "-5% 0px -85% 0px" },
         );
-
-        document.querySelectorAll(".week-group").forEach((el) => {
-          scrollObserver.observe(el);
-        });
+        document
+          .querySelectorAll(".week-group")
+          .forEach((el) => scrollObserver.observe(el));
       }
 
       document.addEventListener("DOMContentLoaded", () => {
         renderLibrary();
         renderStats();
-        setTimeout(initAnimations, 100);
       });
     </script>
   </body>
