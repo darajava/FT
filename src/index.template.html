@@ -6,7 +6,7 @@
     <link
       rel="icon"
       type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cstyle%3E.bg%7Bfill:%23000%7D.text%7Bfill:%23fff;font-family:sans-serif;font-weight:700;font-size:50px%7D@media (prefers-color-scheme:dark)%7B.bg%7Bfill:%23fff%7D.text%7Bfill:%23000%7D%7D%3C/style%3E%3Crect width='100' height='100' rx='20' class='bg'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='central' text-anchor='middle' class='text'%3EFT:%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cstyle%3E.bg%7Bfill:%23000%7D.text%7Bfill:%23fff;font-family:sans-serif;font-weight:700;font-size:50px%7D@media (prefers-color-scheme:dark)%7B.bg%7Bfill:%23fff%7D.text%7Bfill:%23000%7D%7D%3C/style%3E%3Crect width='100' height='100' rx='20' class='bg'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='central' text-anchor='middle' class='text'%3EFT%3C/text%3E%3C/svg%3E"
     />
     <title>Friday Tunes</title>
     <style>
@@ -327,6 +327,17 @@
         margin-bottom: 0.75rem;
       }
 
+      * {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+      }
+
+      *::-webkit-scrollbar {
+        display: none !important; /* Chrome, Safari, and Opera */
+        width: 0 !important;
+        height: 0 !important;
+      }
+
       .tags {
         display: flex;
         gap: 0.5rem;
@@ -450,18 +461,18 @@
     </style>
   </head>
   <body>
-    <header class="fade-up">
+    <header>
       <h1>FT:</h1>
     </header>
 
     <div class="container">
-      <div class="tabs fade-up">
+      <div class="tabs">
         <div class="tab active" onclick="switchTab('library')">Library</div>
         <div class="tab" onclick="switchTab('stats')">Stats</div>
       </div>
 
       <div id="library" class="tab-content active">
-        <div class="search-container fade-up">
+        <div class="search-container">
           <input
             type="text"
             id="search-input"
@@ -520,6 +531,7 @@
 
       let searchQuery = "";
       let scrollObserver = null;
+      let isManualScrolling = false;
       const monthNames = [
         "Jan",
         "Feb",
@@ -588,10 +600,41 @@
         renderLibrary();
       }
 
+      function updateSidebarUI(year, month) {
+        document.querySelectorAll(".nav-year-group").forEach((el) => {
+          if (el.id === `nav-group-${year}`) {
+            el.classList.add("active");
+          } else {
+            el.classList.remove("active");
+          }
+        });
+
+        document
+          .querySelectorAll(".side-month")
+          .forEach((el) => el.classList.remove("active"));
+        const activeGroup = document.getElementById(`nav-group-${year}`);
+        if (activeGroup) {
+          const activeMonthEl = activeGroup.querySelector(
+            `.side-month[data-month="${month}"]`,
+          );
+          if (activeMonthEl) activeMonthEl.classList.add("active");
+        }
+      }
+
       function scrollToGroup(id) {
         const el = document.getElementById(id);
         if (el) {
+          isManualScrolling = true;
+
+          const year = el.getAttribute("data-year");
+          const month = el.getAttribute("data-month");
+          updateSidebarUI(year, month);
+
           el.scrollIntoView({ behavior: "smooth" });
+
+          setTimeout(() => {
+            isManualScrolling = false;
+          }, 800);
         }
       }
 
@@ -644,6 +687,7 @@
 
         let currentYear = null;
         let currentMonth = null;
+        let entryCount = 0;
 
         if (filteredSongs.length === 0) {
           html = `<div style="color: var(--text-muted); padding: 2rem 0;">No results found for "${searchQuery}"</div>`;
@@ -671,8 +715,12 @@
             }
 
             // Build Main Timeline
+            // If it's one of the first two groups, don't use the fade-up class
+            const currentGroupAnimClass =
+              !searchQuery && entryCount < 2 ? "" : animClass;
+
             html += `
-              <div class="week-group ${animClass}" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
+              <div class="week-group ${currentGroupAnimClass}" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
                   <div class="week-header">
                       ${group.display}
                       ${group.theme ? `<span class="week-theme">${group.theme}</span>` : ""}
@@ -687,7 +735,7 @@
                 : "https://via.placeholder.com/480x270.png?text=No+Cover";
 
               html += `
-                  <a href="${song.link}" target="_blank" class="card ${animClass}">
+                  <a href="${song.link}" target="_blank" class="card ${currentGroupAnimClass}">
                       <img src="${thumbUrl}" alt="Thumbnail">
                       <div class="card-content">
                           <h3 class="card-poster">${song.postedBy}</h3>
@@ -713,6 +761,7 @@
               `;
             });
             html += `</div></div>`;
+            entryCount++;
           });
           // Close the very last group
           if (currentYear !== null) {
@@ -722,6 +771,11 @@
 
         container.innerHTML = html;
         sideNavContainer.innerHTML = sideNavHtml;
+
+        if (sortedKeys.length > 0) {
+          const firstGroup = grouped[sortedKeys[0]];
+          updateSidebarUI(firstGroup.year, firstGroup.monthName);
+        }
 
         if (!searchQuery) {
           initAnimations();
@@ -818,41 +872,20 @@
           scrollObserver.disconnect();
         }
 
-        // Highlight the side nav based on viewport scroll
         scrollObserver = new IntersectionObserver(
           (entries) => {
+            if (isManualScrolling) return;
+
             entries.forEach((entry) => {
               if (entry.isIntersecting) {
                 const year = entry.target.getAttribute("data-year");
                 const month = entry.target.getAttribute("data-month");
-
-                // Handle year grouping accordion
-                document.querySelectorAll(".nav-year-group").forEach((el) => {
-                  if (el.id === `nav-group-${year}`) {
-                    el.classList.add("active");
-                  } else {
-                    el.classList.remove("active");
-                  }
-                });
-
-                // Handle active month styling
-                document
-                  .querySelectorAll(".side-month")
-                  .forEach((el) => el.classList.remove("active"));
-                const activeGroup = document.getElementById(
-                  `nav-group-${year}`,
-                );
-                if (activeGroup) {
-                  const activeMonthEl = activeGroup.querySelector(
-                    `.side-month[data-month="${month}"]`,
-                  );
-                  if (activeMonthEl) activeMonthEl.classList.add("active");
-                }
+                updateSidebarUI(year, month);
               }
             });
           },
           {
-            rootMargin: "-10% 0px -70% 0px",
+            rootMargin: "-5% 0px -85% 0px",
           },
         );
 
