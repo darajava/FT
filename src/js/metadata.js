@@ -1,10 +1,11 @@
+require("dotenv").config();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require("fs").promises;
 const pLimit = require("p-limit");
 
 // 1. Setup Gemini
-const genAI = new GoogleGenerativeAI("AIzaSyBEv0O6HGl4NK0Z5i_S7YuhvEMR0ZPFaGY");
-// Using the 3.1 Flash Lite model for even faster processing in 2026
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
 // Set your concurrency limit (e.g., 25 parallel requests)
@@ -84,7 +85,7 @@ async function getMetadata(item) {
 
 async function run() {
   try {
-    const data = await fs.readFile("./friday_tunes.json", "utf8");
+    const data = await fs.readFile("./output/friday_tunes.json", "utf8");
     const tunes = JSON.parse(data);
 
     // Filter by Friday before processing to save API costs
@@ -112,7 +113,7 @@ async function run() {
 
     // 5. Save the results
     await fs.writeFile(
-      "./friday_tunes_enriched.json",
+      "./output/friday_tunes_enriched.json",
       JSON.stringify(enrichedTunes, null, 2),
     );
 

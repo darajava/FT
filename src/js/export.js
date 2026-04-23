@@ -5,7 +5,7 @@ const fs = require("fs");
  * @param {string} filePath - Path to the chat .txt file
  * @param {string} outputName - Name of the resulting JSON file
  */
-function exportFridayTunes(filePath, outputName = "friday_tunes.json") {
+function exportFridayTunes(filePath, outputName = "output/friday_tunes.json") {
   try {
     const data = fs.readFileSync(filePath, "utf8");
 
@@ -14,8 +14,9 @@ function exportFridayTunes(filePath, outputName = "friday_tunes.json") {
     const messageRegex =
       /\[(\d{2}\/\d{2}\/\d{4}),\s(\d{2}:\d{2}:\d{2})\]\s(.*?):\s([\s\S]*?)(?=\n\[\d{2}\/\d{2}\/\d{4}|$)/g;
 
+    // Updated to include m.youtube.com
     const youtubeRegex =
-      /(https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+[^?\s]*)/i;
+      /(https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+[^?\s]*)/i;
 
     const results = [];
     let match;
@@ -38,10 +39,13 @@ function exportFridayTunes(filePath, outputName = "friday_tunes.json") {
       // We include it if:
       // 1. It contains "FT:" and a link (regardless of day)
       // 2. Or it's a Friday and contains a YouTube link
-      if (ytMatch && (hasFT || isFriday)) {
+      if (ytMatch) {
         results.push({
-          link: ytMatch[0],
-          postedOn: `${dateStr} ${timeStr}`,
+          link: ytMatch[0].replace(
+            "https://m.youtube.com",
+            "https://www.youtube.com",
+          ), // Normalize m.youtube.com to www.youtube.com
+          postedOn: dateObj.toISOString(),
           postedBy: author.trim(),
         });
       }

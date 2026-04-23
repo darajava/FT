@@ -1,9 +1,10 @@
+require("dotenv").config();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fs = require("fs").promises;
 const pLimit = require("p-limit");
 
 // 1. Setup Gemini
-const genAI = new GoogleGenerativeAI("AIzaSyBEv0O6HGl4NK0Z5i_S7YuhvEMR0ZPFaGY");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
 // Set concurrency limit for theme generation
@@ -31,10 +32,12 @@ async function getWeekTheme(weekKey, songs) {
     .join("\n");
 
   const prompt = `
-    Based on these songs shared in ${weekKey}, provide a short (1-4 words) "Overall Theme"
+    Based on these songs shared in ${weekKey}, provide a short (1-4 words), snappy, creative "Overall Theme"
 
     The theme can be a band itself, it can be a mood, a country, an event, etc.
     
+    Include one emoji after the theme.
+
     Songs:
     ${songListDescription}
 
@@ -53,10 +56,7 @@ async function getWeekTheme(weekKey, songs) {
 
 async function run() {
   try {
-    const data = await fs.readFile(
-      "./friday_tunes_enriched_fixed_dates.json",
-      "utf8",
-    );
+    const data = await fs.readFile("./output/friday_tunes.json", "utf8");
     const tunes = JSON.parse(data);
 
     // Grouping logic
@@ -67,13 +67,21 @@ async function run() {
       weeksMap[weekKey].push(tune.metadata);
     });
 
-    console.log(
-      `📂 Processing themes for ${Object.keys(weeksMap).length} weeks...`,
-    );
+    const totalWeeks = Object.keys(weeksMap).length;
+    let completed = 0;
+
+    console.log(`📂 Processing themes for ${totalWeeks} weeks...`);
 
     // Create limited tasks
     const tasks = Object.entries(weeksMap).map(([weekKey, songs]) => {
-      return limit(() => getWeekTheme(weekKey, songs));
+      return limit(async () => {
+        const result = await getWeekTheme(weekKey, songs);
+        completed++;
+        console.log(
+          `⏳ Progress: ${completed}/${totalWeeks} (${Math.round((completed / totalWeeks) * 100)}%)`,
+        );
+        return result;
+      });
     });
 
     const resultsArray = await Promise.all(tasks);
@@ -82,7 +90,7 @@ async function run() {
     const finalThemes = Object.assign({}, ...resultsArray);
 
     await fs.writeFile(
-      "./friday_themes.json",
+      "./output/friday_themes.json",
       JSON.stringify(finalThemes, null, 2),
     );
 
