@@ -32,6 +32,7 @@
         padding: 0;
         line-height: 1.5;
         -webkit-font-smoothing: antialiased;
+        -webkit-overflow-scrolling: touch;
       }
 
       header {
@@ -462,7 +463,7 @@
   </head>
   <body>
     <header>
-      <h1>FT:</h1>
+      <h1>FT</h1>
     </header>
 
     <div class="container">
@@ -601,24 +602,27 @@
       }
 
       function updateSidebarUI(year, month) {
-        document.querySelectorAll(".nav-year-group").forEach((el) => {
-          if (el.id === `nav-group-${year}`) {
+        const targetGroup = document.getElementById(`nav-group-${year}`);
+        if (!targetGroup) return;
+
+        // Only update if the active year group has actually changed
+        if (!targetGroup.classList.contains("active")) {
+          document.querySelectorAll(".nav-year-group").forEach((el) => {
+            el.classList.remove("active");
+          });
+          targetGroup.classList.add("active");
+        }
+
+        document.querySelectorAll(".side-month").forEach((el) => {
+          if (
+            el.getAttribute("data-month") === month &&
+            el.closest(`#nav-group-${year}`)
+          ) {
             el.classList.add("active");
           } else {
             el.classList.remove("active");
           }
         });
-
-        document
-          .querySelectorAll(".side-month")
-          .forEach((el) => el.classList.remove("active"));
-        const activeGroup = document.getElementById(`nav-group-${year}`);
-        if (activeGroup) {
-          const activeMonthEl = activeGroup.querySelector(
-            `.side-month[data-month="${month}"]`,
-          );
-          if (activeMonthEl) activeMonthEl.classList.add("active");
-        }
       }
 
       function scrollToGroup(id) {
@@ -628,13 +632,24 @@
 
           const year = el.getAttribute("data-year");
           const month = el.getAttribute("data-month");
+
+          // Update UI first
           updateSidebarUI(year, month);
 
-          el.scrollIntoView({ behavior: "smooth" });
+          // Calculate position manually to avoid Safari's scrollIntoView crash
+          const headerOffset = 20;
+          const elementPosition = el.getBoundingClientRect().top;
+          const offsetPosition =
+            elementPosition + window.pageYOffset - headerOffset;
+
+          window.scrollTo({
+            top: offsetPosition,
+            behavior: "smooth",
+          });
 
           setTimeout(() => {
             isManualScrolling = false;
-          }, 800);
+          }, 1000);
         }
       }
 
@@ -740,7 +755,7 @@
                       <div class="card-content">
                           <h3 class="card-poster">${song.postedBy}</h3>
                           <div class="card-track-info">
-                              <strong>${song.metadata.band || "Unknown Artist"}</strong> 
+                              <strong>${song.metadata.band || "Unknown Artist"}</strong> 
                           </div>
                           <div class="card-track-info">
                             ${
