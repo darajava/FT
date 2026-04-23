@@ -117,7 +117,7 @@ async function run() {
       "./output/friday_tunes_enriched.json",
       "utf8",
     );
-    const tunes = JSON.parse(data).splice(0, 100); // Limit to first 100 for testing
+    const tunes = JSON.parse(data);
 
     // 2. Map the tunes to "limited" promises
     const tasks = tunes.map((tune) => {
