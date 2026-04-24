@@ -303,6 +303,38 @@
         display: flex;
         flex-direction: column;
         flex-grow: 1;
+        position: relative;
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 1.25rem;
+        right: 1rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2;
+        color: var(--text-muted);
+      }
+
+      .copy-btn:hover {
+        background-color: var(--bg);
+        color: var(--text-main);
+      }
+
+      .copy-btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      .copy-btn.copied {
+        color: #10b981;
       }
 
       .card-poster {
@@ -313,6 +345,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        padding-right: 2rem;
       }
 
       .card-track-info {
@@ -16741,6 +16774,7 @@
       let virtualObserver = null;
       let gridHTMLMap = {};
       let isManualScrolling = false;
+      let scrollEndTimeout = null;
       const monthNames = [
         "Jan",
         "Feb",
@@ -16866,10 +16900,6 @@
               behavior: "smooth",
             });
           });
-
-          setTimeout(() => {
-            isManualScrolling = false;
-          }, 1000);
         }
       }
 
@@ -16909,6 +16939,19 @@
 
         cardElement.onclick = null;
         cardElement.style.cursor = "default";
+      }
+
+      function copyToClipboard(event, url, btn) {
+        event.stopPropagation();
+        navigator.clipboard.writeText(url).then(() => {
+          const originalHTML = btn.innerHTML;
+          btn.classList.add("copied");
+          btn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+          setTimeout(() => {
+            btn.classList.remove("copied");
+            btn.innerHTML = originalHTML;
+          }, 2000);
+        });
       }
 
       function renderLibrary() {
@@ -17017,6 +17060,9 @@
                         <img src="${thumbUrl}" alt="Thumbnail" loading="lazy">
                       </div>
                       <div class="card-content">
+                          <button class="copy-btn" onclick="copyToClipboard(event, '${song.link}', this)" title="Copy Link">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                          </button>
                           <h3 class="card-poster">${song.postedBy}</h3>
                           <div class="card-track-info"><strong>${song.metadata.band || "Unknown Artist"}</strong></div>
                           <div class="card-track-info italic">${
@@ -17151,6 +17197,24 @@
           .querySelectorAll(".week-group")
           .forEach((el) => scrollObserver.observe(el));
       }
+
+      window.addEventListener("scroll", () => {
+        if (isManualScrolling) {
+          clearTimeout(scrollEndTimeout);
+          scrollEndTimeout = setTimeout(() => {
+            isManualScrolling = false;
+          }, 100);
+        }
+      });
+
+      ["wheel", "touchmove", "keydown"].forEach((evt) => {
+        window.addEventListener(evt, () => {
+          if (isManualScrolling) {
+            isManualScrolling = false;
+            clearTimeout(scrollEndTimeout);
+          }
+        });
+      });
 
       document.addEventListener("DOMContentLoaded", () => {
         renderLibrary();
