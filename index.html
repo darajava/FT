@@ -16885,6 +16885,25 @@
       }
 
       function playVideo(cardElement, videoId) {
+        // Find any existing iframe and restore its thumbnail/click handler
+        const existingIframe = document.querySelector(
+          ".video-placeholder iframe",
+        );
+        if (existingIframe) {
+          const oldPlaceholder = existingIframe.parentElement;
+          const oldCard = oldPlaceholder.closest(".card");
+          const oldVideoId = oldCard.getAttribute("data-video-id");
+
+          if (oldCard && oldVideoId) {
+            const oldThumbUrl = `https://img.youtube.com/vi/${oldVideoId}/hqdefault.jpg`;
+            oldPlaceholder.innerHTML = `<img src="${oldThumbUrl}" alt="Thumbnail" loading="lazy">`;
+            oldCard.onclick = function () {
+              playVideo(this, oldVideoId);
+            };
+            oldCard.style.cursor = "pointer";
+          }
+        }
+
         const placeholder = cardElement.querySelector(".video-placeholder");
         if (!placeholder || !videoId) return;
 
@@ -17004,7 +17023,7 @@
               }
 
               groupGridHtml += `
-                  <div class="card" onclick="playVideo(this, '${videoId}')">
+                  <div class="card" data-video-id="${videoId}" onclick="playVideo(this, '${videoId}')">
                       <div class="video-placeholder">
                         <img src="${thumbUrl}" alt="Thumbnail" loading="lazy">
                       </div>
