@@ -16,81 +16,41 @@ const limit = pLimit(25);
 async function getMetadata(item) {
   try {
     const prompt = `
-      Based on this YouTube Video: "Title: ${item.metadata.title || ""} - Channel: ${item.metadata.channel || ""} Band: ${item.metadata.band || "N/A"}}"
+  Analyze the following YouTube video metadata and chat context to find the most relevant "reaction" quote.
 
-      And any provided context: "${JSON.stringify(item.context, null, 2) || ""}"
+  ### VIDEO DATA:
+  Title: ${item.metadata.title || "Unknown"}
+  Artist/Band: ${item.metadata.band || "N/A"}
+  Is this a music track? ${item.metadata.is_song ? "Yes" : "No"}
 
-      Return a quote by someone responding to the video, or a quote from person who posted the video (always the first item in context)
+  ### CHAT CONTEXT (JSON):
+  ${JSON.stringify(item.context, null, 2)}
 
-      Make sure the quote is likely referring to the originally posted song.
+  ### TASK:
+  Extract a quote from the context that is a direct reaction to the video above. 
+  - If the poster of the link (the first person in context) provided a caption/comment with the link, that is a high-priority candidate.
+  - If others replied, pick the most insightful, witty, or descriptive reaction.
+  - **CRITICAL:** Chat topics shift fast. If the conversation immediately moves to a different topic (e.g., politics, food, personal insults) that has nothing to do with the video/song, ignore those messages.
 
-      It's VERY likely that none of the responses will be referring to the song, so if you can't find a quote that is likely referring to the song, return {reply: null, poster: null}
+  ### RELEVANCY RULES:
+  1. If it's a song: Look for words like "tune", "classic", "dire", "banger", "artist name", or specific musical critiques.
+  2. If it's a general video: Look for reactions to the video content (e.g., "The Viper is back", "Tubs looks guilty").
+  3. Return { "reply": null, "poster": null } if:
+     - No one reacts to the link.
+     - The "reactions" are generic (e.g., just "lol" or "WTF") and don't provide value.
+     - The conversation has clearly moved on to a completely different subject.
 
-      If there are multiple quotes referring to the song, pick the wittiest/funniest one.
-      
-      Some examples:
+  ### EXAMPLES:
+  - Input Link: "Bohemian Rhapsody"
+    Context: ["Eddie: https://link", "Sproat: Dire music", "Sproat: Anyway, what's for dinner?"]
+    Result: { "reply": "Dire music", "poster": "Sproat" }
 
-      Youtube video: "Title: Bohemian Rhapsody - Channel: Queen Band: Queen"
-      "context": [
-        "Barry: https://youtu.be/a3JSbOt7CLo",
-        "Barry: Listen to that every day I work at 8am or earlier 🤘",
-        "Eddie: he's gonna need a halls soother after that",
-        "Barry: Dimebag Darrell and the brother both gone 💀",
-        "Dara: nice choon"
-      ],
+  - Input Link: "Politics Clip"
+    Context: ["Eddie: https://link", "Barry: This guy is a wokie", "Dec: I want a burger"]
+    Result: { "reply": "This guy is a wokie", "poster": "Barry" }
 
-      Response: {reply: "Listen to that every day I work at 8am or earlier 🤘", poster: "Barry"}
-
-      Youtube video: "Title: Bohemian Rhapsody - Channel: Queen Band: Queen"
-      "context": [
-        "Barry: https://youtu.be/a3JSbOt7CLo",
-  ]
-        
-        Response: {reply: null, poster: null}
-
-        Youtube video: title: Can It Be All So Simple / Intermission - Channel: Wu-Tang Clan Band: Wu-Tang Clan
-
-        "context": [
-          "Eddie: Friday tunez: https://www.youtube.com/watch?v=346lfNbH_NA",
-          "Dec: What ever happened to that one copy of their album. Was it ever released or did that medical guy hold on to it",
-          "Eddie: The US government has it now lol",
-          "Dec: Lol. Cause your man is in jail?",
-          "Eddie: Aye. They took his assets including the album"
-        ],
-
-        Response: {reply: "What ever happened to that one copy of their album. Was it ever released or did that medical guy hold on to it", poster: "Dec"}
-
-        Youtube video: title: Alison Moyet - Only You (with lyrics) - Channel: Alison Moyet Band: Alison Moyet
-
-        context": [
-          "Eddie: Friday Tunage: https://www.youtube.com/watch?v=FH8Y6nN7N1E\r\n‎[09/06/2023, 18:55:05] Dara: ‎image omitted",
-          "Barry: Can you give me my iPhone back, @⁨Eddie⁩ ?\r\n‎[09/06/2023, 19:36:11] Barry: ‎image omitted",
-          "Barry: Got an alert for first time yesterday",
-          "Barry: Stolen LAST JULY",
-          "Eddie: Zoom out a bit. Where exactly is it\r\n‎[09/06/2023, 19:39:23] Eddie: Cheers ‎image omitted"
-        ],
-
-        Response: {reply: null, poster: null}
-
-         {
-    "link": "https://www.youtube.com/watch?v=evNXspiFtFI",
-    "postedOn": "2023-08-05T14:53:14.000Z",
-    "postedBy": "Si",
-    "context": [
-      "Si: Deadly go on limewire and download a load of songs with the wrong artist\n\nThis was my fav weezer song for years 😂\n\nhttps://m.youtube.com/watch?v=evNXspiFtFI",
-      "Dec: Probably Weezers best song"
-    ],
-    "metadata": {
-      "title": "Happiness Is All The Rage",
-      "band": "The Promise Ring",
-      "channel": "The Promise Ring - Topic",
-      "genre": "Emo",
-      "is_song": true
-    }
-  },
-
-      Response: {reply: "Probably Weezers best song", poster: "Dec"}
-    `;
+  Return ONLY a JSON object.
+`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;

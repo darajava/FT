@@ -68,15 +68,21 @@
         padding: 0 1.5rem 4rem;
       }
 
-      /* Search Bar */
+      /* --- STICKY SEARCH BAR CHANGES --- */
       .search-container {
-        margin-bottom: 2.5rem;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background-color: var(--bg); /* Prevents cards showing through */
+        padding: 1.5rem 0; /* Padding for better spacing when stuck */
+        padding-bottom: 0.5rem; /* Remove bottom padding to reduce extra space when stuck */
+        margin-bottom: 1.5rem;
         display: flex;
         justify-content: center;
         align-items: center;
         flex-direction: column;
-        padding-left: 0;
       }
+      /* ---------------------------------- */
 
       #search-input {
         width: 100%;
@@ -90,6 +96,7 @@
         color: var(--text-main);
         outline: none;
         transition: border-color 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02); /* Subtle lift */
       }
 
       #search-input:focus {
@@ -153,13 +160,14 @@
       /* Apple-style Floating Side Nav */
       #side-nav {
         position: sticky;
-        top: 2rem;
+        top: 7rem; /* Adjusted to account for sticky search bar height */
         width: 50px;
         flex-shrink: 0;
         display: flex;
         flex-direction: column;
         align-items: flex-end;
         padding-right: 1.5rem;
+        z-index: 50;
       }
 
       .nav-year-group {
@@ -237,8 +245,8 @@
 
       .week-group {
         margin-bottom: 3.5rem;
-        scroll-margin-top: 4rem;
-        min-height: 100px; /* Preserve space for virtualization */
+        scroll-margin-top: 7.5rem; /* Adjusted to center week headers below search */
+        min-height: 100px;
       }
 
       .week-header {
@@ -526,6 +534,7 @@
         #side-nav {
           width: 35px;
           padding-right: 0.75rem;
+          top: 6.5rem;
         }
         .side-year {
           font-size: 0.75rem;
@@ -677,6 +686,14 @@
       }
 
       function handleSearch(val) {
+        const url = new URL(window.location);
+        if (val) {
+          url.searchParams.set("q", val);
+        } else {
+          url.searchParams.delete("q");
+        }
+        window.history.replaceState({}, "", url);
+
         searchQuery = val.toLowerCase();
         renderLibrary();
       }
@@ -734,7 +751,7 @@
           };
           window.addEventListener("scrollend", onScrollEnd);
 
-          const headerOffset = 20;
+          const headerOffset = 120; // Increased to compensate for sticky header
           const elementPosition = el.getBoundingClientRect().top;
           const offsetPosition =
             elementPosition + window.pageYOffset - headerOffset;
@@ -748,9 +765,9 @@
         if (!placeholder || !videoId) return;
         const origin = window.location.origin;
         placeholder.innerHTML = `
-      <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&origin=${origin}" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowfullscreen></iframe>`;
+          <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&origin=${origin}" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                  allowfullscreen></iframe>`;
         cardElement.onclick = null;
         cardElement.style.cursor = "default";
       }
@@ -773,13 +790,21 @@
         const sideNavContainer = document.getElementById("side-nav");
         const grouped = {};
 
+        const searchTerms = searchQuery
+          .split("|")
+          .map((term) => term.trim())
+          .filter((term) => term !== "");
+
         const filteredSongs = songs.filter((song) => {
-          return (
-            song.postedBy.toLowerCase().includes(searchQuery) ||
-            song.metadata.genre.toLowerCase().includes(searchQuery) ||
-            song.metadata.band.toLowerCase().includes(searchQuery) ||
-            song.metadata.title.toLowerCase().includes(searchQuery)
-          );
+          if (searchTerms.length === 0) return true;
+          return searchTerms.some((term) => {
+            return (
+              song.postedBy.toLowerCase().includes(term) ||
+              song.metadata.genre.toLowerCase().includes(term) ||
+              song.metadata.band.toLowerCase().includes(term) ||
+              song.metadata.title.toLowerCase().includes(term)
+            );
+          });
         });
 
         document.getElementById("num-results").textContent =
@@ -819,8 +844,8 @@
               if (currentYear !== null) sideNavHtml += `</div></div>`;
               currentYear = group.year;
               sideNavHtml += `<div class="nav-year-group" id="nav-group-${currentYear}">
-            <div class="side-year" onclick="toggleYear(${currentYear})">${currentYear}</div>
-            <div class="side-months">`;
+                <div class="side-year" onclick="toggleYear(${currentYear})">${currentYear}</div>
+                <div class="side-months">`;
               currentMonth = null;
             }
             if (group.monthName !== currentMonth) {
@@ -842,37 +867,36 @@
                   .replace(/^ ?- ?/, "") || "Untitled";
 
               cardsHtml += `
-            <div class="card" data-video-id="${videoId}" onclick="playVideo(this, '${videoId}')">
-                <div class="video-placeholder"><img src="${thumbUrl}" alt="Thumbnail" loading="lazy"></div>
-                <div class="card-content">
-                    <button class="copy-btn" onclick="copyToClipboard(event, '${song.link}', this)" title="Copy Link">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    </button>
-                    <h3 class="card-poster">${song.postedBy}</h3>
-                    <div class="card-track-info"><strong>${song.metadata.band || "Unknown Artist"}</strong></div>
-                    <div class="card-track-info italic">${cleanTitle}</div>
-                    <div class="card-meta"><span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
-                    <div class="tags"><span class="tag">${song.metadata.genre || "Misc"}</span></div>
-                    ${song.reply?.poster ? `<div class="reply-container"><div class="reply-poster">${song.reply.poster} Said</div><div class="chat-bubble">"${song.reply.reply}"</div></div>` : ""}
-                </div>
-            </div>`;
+                <div class="card" data-video-id="${videoId}" onclick="playVideo(this, '${videoId}')">
+                    <div class="video-placeholder"><img src="${thumbUrl}" alt="Thumbnail" loading="lazy"></div>
+                    <div class="card-content">
+                        <button class="copy-btn" onclick="copyToClipboard(event, '${song.link}', this)" title="Copy Link">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                        <h3 class="card-poster">${song.postedBy}</h3>
+                        <div class="card-track-info"><strong>${song.metadata.band || "Unknown Artist"}</strong></div>
+                        <div class="card-track-info italic">${cleanTitle}</div>
+                        <div class="card-meta"><span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
+                        <div class="tags"><span class="tag">${song.metadata.genre || "Misc"}</span></div>
+                        ${song.reply?.poster ? `<div class="reply-container"><div class="reply-poster">${song.reply.poster} Said</div><div class="chat-bubble">"${song.reply.reply}"</div></div>` : ""}
+                    </div>
+                </div>`;
             });
 
             html += `
-          <div class="week-group" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
-              <div class="week-header">
-                  <div>${group.display}</div>
-                  ${group.theme ? `<div class="week-theme">${group.theme}</div>` : ""}
-              </div>
-              <div class="songs-grid">${cardsHtml}</div>
-          </div>`;
+              <div class="week-group" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
+                  <div class="week-header">
+                      <div>${group.display}</div>
+                      ${group.theme ? `<div class="week-theme">${group.theme}</div>` : ""}
+                  </div>
+                  <div class="songs-grid">${cardsHtml}</div>
+              </div>`;
           });
           if (currentYear !== null) sideNavHtml += `</div></div>`;
         }
 
         container.innerHTML = html;
         sideNavContainer.innerHTML = sideNavHtml;
-
         initScrollSpy();
       }
 
@@ -890,7 +914,7 @@
               }
             });
           },
-          { rootMargin: "-5% 0px -85% 0px" },
+          { rootMargin: "-15% 0px -80% 0px" },
         );
         document
           .querySelectorAll(".week-group")
@@ -906,7 +930,31 @@
         }
       });
 
-      document.addEventListener("DOMContentLoaded", renderLibrary);
+      function switchTab(tabName) {
+        document
+          .querySelectorAll(".tab-content")
+          .forEach((c) => c.classList.remove("active"));
+        document
+          .querySelectorAll(".tab")
+          .forEach((t) => t.classList.remove("active"));
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+        if (tabName === "library") renderLibrary();
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryFromUrl = urlParams.get("q");
+
+        if (queryFromUrl) {
+          searchQuery = queryFromUrl.toLowerCase();
+          const searchInput = document.getElementById("search-input");
+          if (searchInput) {
+            searchInput.value = queryFromUrl;
+          }
+        }
+        renderLibrary();
+      });
     </script>
   </body>
 </html>
