@@ -35,6 +35,19 @@
         -webkit-overflow-scrolling: touch;
       }
 
+      /* Scroll Lock Overlay */
+      #scroll-lock-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10000;
+        display: none;
+        background: transparent;
+        pointer-events: auto;
+      }
+
       header {
         padding: 4rem 1rem 3rem;
         text-align: center;
@@ -276,7 +289,7 @@
           transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
           box-shadow 0.4s ease;
         text-decoration: none;
-        display: flex; /* Changed to flex for vertical alignment */
+        display: flex;
         flex-direction: column;
         height: 100%;
         color: inherit;
@@ -284,7 +297,6 @@
       }
 
       .card:hover {
-        /* transform: translateY(-4px); */
         box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
       }
 
@@ -480,7 +492,6 @@
         line-height: 1;
       }
 
-      /* Specific adjustment for centering content in the Total Songs card */
       .stat-card-centered {
         display: flex;
         flex-direction: column;
@@ -536,6 +547,8 @@
     </style>
   </head>
   <body>
+    <div id="scroll-lock-overlay"></div>
+
     <header>
       <h1>FT</h1>
     </header>
@@ -586,21 +599,7 @@
         },
         {
           postedBy: "Dara",
-          postedOn: "11/10/2024 15:14:14",
-          link: "https://www.youtube.com/watch?v=QH2-TGUlwu4",
-          metadata: {
-            genre: "Novelty",
-            band: "N/A",
-            title: "Nyan Cat",
-          },
-          reply: {
-            poster: "Alice",
-            reply: "Legendary.",
-          },
-        },
-        {
-          postedBy: "Dara",
-          postedOn: "11/3/2024 12:00:00",
+          postedOn: "11/03/2024 12:00:00",
           link: "https://www.youtube.com/watch?v=ZZ5LpwO-An4",
           metadata: {
             genre: "Novelty",
@@ -628,8 +627,6 @@
 
       let searchQuery = "";
       let scrollObserver = null;
-      let virtualObserver = null;
-      let gridHTMLMap = {};
       let isManualScrolling = false;
       let scrollEndTimeout = null;
       const monthNames = [
@@ -679,20 +676,6 @@
         return match && match[2].length === 11 ? match[2] : null;
       }
 
-      function switchTab(tabId) {
-        document
-          .querySelectorAll(".tab")
-          .forEach((t) => t.classList.remove("active"));
-        document
-          .querySelectorAll(".tab-content")
-          .forEach((c) => c.classList.remove("active"));
-
-        document
-          .querySelector(`.tab[onclick="switchTab('${tabId}')"]`)
-          .classList.add("active");
-        document.getElementById(tabId).classList.add("active");
-      }
-
       function handleSearch(val) {
         searchQuery = val.toLowerCase();
         renderLibrary();
@@ -724,76 +707,50 @@
       function toggleYear(year) {
         const targetGroup = document.getElementById(`nav-group-${year}`);
         if (!targetGroup) return;
-
         const isActive = targetGroup.classList.contains("active");
-
-        document.querySelectorAll(".nav-year-group").forEach((el) => {
-          el.classList.remove("active");
-        });
-
-        if (!isActive) {
-          targetGroup.classList.add("active");
-        }
+        document
+          .querySelectorAll(".nav-year-group")
+          .forEach((el) => el.classList.remove("active"));
+        if (!isActive) targetGroup.classList.add("active");
       }
 
       function scrollToGroup(id) {
         const el = document.getElementById(id);
         if (el) {
           isManualScrolling = true;
+          const overlay = document.getElementById("scroll-lock-overlay");
+          if (overlay) overlay.style.display = "block";
 
           const year = el.getAttribute("data-year");
           const month = el.getAttribute("data-month");
-
           updateSidebarUI(year, month);
 
-          requestAnimationFrame(() => {
-            const headerOffset = 20;
-            const elementPosition = el.getBoundingClientRect().top;
-            const offsetPosition =
-              elementPosition + window.pageYOffset - headerOffset;
+          const onScrollEnd = () => {
+            setTimeout(() => {
+              if (overlay) overlay.style.display = "none";
+              isManualScrolling = false;
+              window.removeEventListener("scrollend", onScrollEnd);
+            }, 100);
+          };
+          window.addEventListener("scrollend", onScrollEnd);
 
-            window.scrollTo({
-              top: offsetPosition,
-              behavior: "smooth",
-            });
-          });
+          const headerOffset = 20;
+          const elementPosition = el.getBoundingClientRect().top;
+          const offsetPosition =
+            elementPosition + window.pageYOffset - headerOffset;
+
+          window.scrollTo({ top: offsetPosition, behavior: "smooth" });
         }
       }
 
       function playVideo(cardElement, videoId) {
-        // Find any existing iframe and restore its thumbnail/click handler
-        const existingIframe = document.querySelector(
-          ".video-placeholder iframe",
-        );
-        if (existingIframe) {
-          const oldPlaceholder = existingIframe.parentElement;
-          const oldCard = oldPlaceholder.closest(".card");
-          const oldVideoId = oldCard.getAttribute("data-video-id");
-
-          if (oldCard && oldVideoId) {
-            const oldThumbUrl = `https://img.youtube.com/vi/${oldVideoId}/hqdefault.jpg`;
-            oldPlaceholder.innerHTML = `<img src="${oldThumbUrl}" alt="Thumbnail" loading="lazy">`;
-            oldCard.onclick = function () {
-              playVideo(this, oldVideoId);
-            };
-            oldCard.style.cursor = "pointer";
-          }
-        }
-
         const placeholder = cardElement.querySelector(".video-placeholder");
         if (!placeholder || !videoId) return;
-
         const origin = window.location.origin;
-        const src = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&origin=${origin}`;
-
         placeholder.innerHTML = `
-          <iframe 
-            src="${src}" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen>
-          </iframe>
-        `;
-
+      <iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1&rel=0&origin=${origin}" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowfullscreen></iframe>`;
         cardElement.onclick = null;
         cardElement.style.cursor = "default";
       }
@@ -815,7 +772,6 @@
         const container = document.getElementById("timeline-container");
         const sideNavContainer = document.getElementById("side-nav");
         const grouped = {};
-        gridHTMLMap = {};
 
         const filteredSongs = songs.filter((song) => {
           return (
@@ -828,21 +784,17 @@
 
         document.getElementById("num-results").textContent =
           `${filteredSongs.length} results`;
-
         document.getElementById("num-results").style.opacity =
           searchQuery == "" ? "0" : "1";
 
         filteredSongs.forEach((song) => {
           if (!grouped[song.sortKey]) {
             const themeKey = `week${song.week}-${song.year}`;
-            const themeTitle = themesData[themeKey] || "";
-
             grouped[song.sortKey] = {
               id: `group-${song.year}-${song.week}`,
               display: `Week ${song.week}, ${song.year}`,
-              theme: themeTitle,
+              theme: themesData[themeKey] || "",
               year: song.year,
-              monthIndex: song.dateObj.getMonth(),
               monthName: monthNames[song.dateObj.getMonth()],
               items: [],
             };
@@ -866,11 +818,9 @@
             if (group.year !== currentYear) {
               if (currentYear !== null) sideNavHtml += `</div></div>`;
               currentYear = group.year;
-              sideNavHtml += `
-                <div class="nav-year-group" id="nav-group-${currentYear}">
-                  <div class="side-year" onclick="toggleYear(${currentYear})">${currentYear}</div>
-                  <div class="side-months">
-              `;
+              sideNavHtml += `<div class="nav-year-group" id="nav-group-${currentYear}">
+            <div class="side-year" onclick="toggleYear(${currentYear})">${currentYear}</div>
+            <div class="side-months">`;
               currentMonth = null;
             }
             if (group.monthName !== currentMonth) {
@@ -878,64 +828,44 @@
               sideNavHtml += `<div class="side-month" data-month="${currentMonth}" onclick="scrollToGroup('${group.id}')">${currentMonth}</div>`;
             }
 
-            html += `
-              <div class="week-group" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
-                  <div class="week-header">
-                      <div>
-                        ${group.display}
-                        </div>
-
-                      ${group.theme ? `<div class="week-theme">${group.theme}</div>` : ""}
-                  </div>
-                  <div class="songs-grid" id="grid-${group.id}"></div>
-              </div>
-            `;
-
-            let groupGridHtml = "";
+            let cardsHtml = "";
             group.items.forEach((song) => {
               const videoId = getYoutubeId(song.link);
               const thumbUrl = videoId
                 ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
                 : "https://via.placeholder.com/480x270.png?text=No+Cover";
-
               const bandRegex = new RegExp(song.metadata.band, "i");
+              const cleanTitle =
+                song.metadata.title
+                  .replace(bandRegex, "")
+                  .trim()
+                  .replace(/^ ?- ?/, "") || "Untitled";
 
-              // Calculate Reply HTML
-              let replyHtml = "";
-              if (song.reply && song.reply.poster && song.reply.reply) {
-                replyHtml = `
-                    <div class="reply-container">
-                      <div class="reply-poster">${song.reply.poster} Said</div>
-                      <div class="chat-bubble">"${song.reply.reply}"</div>
-                    </div>
-                  `;
-              }
-
-              groupGridHtml += `
-                  <div class="card" data-video-id="${videoId}" onclick="playVideo(this, '${videoId}')">
-                      <div class="video-placeholder">
-                        <img src="${thumbUrl}" alt="Thumbnail" loading="lazy">
-                      </div>
-                      <div class="card-content">
-                          <button class="copy-btn" onclick="copyToClipboard(event, '${song.link}', this)" title="Copy Link">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                          </button>
-                          <h3 class="card-poster">${song.postedBy}</h3>
-                          <div class="card-track-info"><strong>${song.metadata.band || "Unknown Artist"}</strong></div>
-                          <div class="card-track-info italic">${
-                            song.metadata.title
-                              .replace(bandRegex, "")
-                              .trim()
-                              .replace(/^ ?- ?/, "") || "Untitled"
-                          }</div>
-                          <div class="card-meta"><span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
-                          <div class="tags"><span class="tag">${song.metadata.genre || "Misc"}</span></div>
-                          ${replyHtml}
-                      </div>
-                  </div>
-              `;
+              cardsHtml += `
+            <div class="card" data-video-id="${videoId}" onclick="playVideo(this, '${videoId}')">
+                <div class="video-placeholder"><img src="${thumbUrl}" alt="Thumbnail" loading="lazy"></div>
+                <div class="card-content">
+                    <button class="copy-btn" onclick="copyToClipboard(event, '${song.link}', this)" title="Copy Link">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                    <h3 class="card-poster">${song.postedBy}</h3>
+                    <div class="card-track-info"><strong>${song.metadata.band || "Unknown Artist"}</strong></div>
+                    <div class="card-track-info italic">${cleanTitle}</div>
+                    <div class="card-meta"><span>${song.dateObj.toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span></div>
+                    <div class="tags"><span class="tag">${song.metadata.genre || "Misc"}</span></div>
+                    ${song.reply?.poster ? `<div class="reply-container"><div class="reply-poster">${song.reply.poster} Said</div><div class="chat-bubble">"${song.reply.reply}"</div></div>` : ""}
+                </div>
+            </div>`;
             });
-            gridHTMLMap[group.id] = groupGridHtml;
+
+            html += `
+          <div class="week-group" id="${group.id}" data-year="${group.year}" data-month="${group.monthName}">
+              <div class="week-header">
+                  <div>${group.display}</div>
+                  ${group.theme ? `<div class="week-theme">${group.theme}</div>` : ""}
+              </div>
+              <div class="songs-grid">${cardsHtml}</div>
+          </div>`;
           });
           if (currentYear !== null) sideNavHtml += `</div></div>`;
         }
@@ -943,95 +873,7 @@
         container.innerHTML = html;
         sideNavContainer.innerHTML = sideNavHtml;
 
-        if (sortedKeys.length > 0) {
-          const firstGroup = grouped[sortedKeys[0]];
-          updateSidebarUI(firstGroup.year, firstGroup.monthName);
-        }
-
-        initVirtualization();
         initScrollSpy();
-      }
-
-      function initVirtualization() {
-        if (virtualObserver) virtualObserver.disconnect();
-
-        virtualObserver = new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              if (entry.isIntersecting) {
-                const groupId = entry.target.id;
-                const gridEl = document.getElementById(`grid-${groupId}`);
-                if (gridEl && !gridEl.innerHTML) {
-                  gridEl.innerHTML = gridHTMLMap[groupId];
-                }
-              }
-            });
-          },
-          { rootMargin: "800px 0px" },
-        );
-
-        document.querySelectorAll(".week-group").forEach((el) => {
-          virtualObserver.observe(el);
-        });
-      }
-
-      function renderStats() {
-        const container = document.getElementById("stats-container");
-        const totalSongs = songs.length;
-        const userCounts = {},
-          genreCounts = {},
-          bandCounts = {};
-
-        songs.forEach((song) => {
-          userCounts[song.postedBy] = (userCounts[song.postedBy] || 0) + 1;
-          genreCounts[song.metadata.genre] =
-            (genreCounts[song.metadata.genre] || 0) + 1;
-          bandCounts[song.metadata.band] =
-            (bandCounts[song.metadata.band] || 0) + 1;
-        });
-
-        function generateTopListHTML(
-          counts,
-          title,
-          limit = 5,
-          isPercentage = false,
-        ) {
-          const sorted = Object.entries(counts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, limit)
-            .filter(([name]) => name != "N/A");
-
-          if (sorted.length === 0) return "";
-
-          // Find the highest value to normalize the bars
-          const maxVal = sorted[0][1];
-
-          let listHtml = `<ul class="stat-list">`;
-          sorted.forEach(([key, val]) => {
-            // visualPct is relative to the top item (normalized)
-            const visualPct = (val / maxVal) * 100;
-            // labelPct is relative to the total number of songs
-            const labelPct = Math.round((val / songs.length) * 100);
-
-            listHtml += `
-            <li>
-              <div class="stat-row">
-                <span>${key}</span>
-                <strong>${isPercentage ? `${labelPct}%` : val}</strong>
-              </div>
-              <div class="stat-bar-container">
-                <div class="stat-bar" style="width: ${visualPct}%"></div>
-              </div>
-            </li>`;
-          });
-          return `<div class="stat-card"><h2>${title}</h2>${listHtml}</ul></div>`;
-        }
-
-        container.innerHTML =
-          `<div class="stat-card stat-card-centered"><h2>Total Songs</h2><div class="big-stat">${totalSongs}</div></div>` +
-          generateTopListHTML(userCounts, "Top Contributors", 6, true) +
-          generateTopListHTML(genreCounts, "Top Genres", 20, false) +
-          generateTopListHTML(bandCounts, "Top Artists", 21, false);
       }
 
       function initScrollSpy() {
@@ -1064,19 +906,7 @@
         }
       });
 
-      ["wheel", "touchmove", "keydown"].forEach((evt) => {
-        window.addEventListener(evt, () => {
-          if (isManualScrolling) {
-            isManualScrolling = false;
-            clearTimeout(scrollEndTimeout);
-          }
-        });
-      });
-
-      document.addEventListener("DOMContentLoaded", () => {
-        renderLibrary();
-        renderStats();
-      });
+      document.addEventListener("DOMContentLoaded", renderLibrary);
     </script>
   </body>
 </html>
